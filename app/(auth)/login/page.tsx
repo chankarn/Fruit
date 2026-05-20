@@ -1,13 +1,13 @@
 // File: app/(auth)/login/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const rawNext = search.get('next') ?? '';
@@ -24,10 +24,7 @@ export default function LoginPage() {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(
@@ -86,13 +83,18 @@ export default function LoginPage() {
 
       <p className="text-sm text-center text-slate-600">
         ยังไม่มีบัญชี?{' '}
-        <Link
-          href="/register"
-          className="text-mango-600 font-semibold underline underline-offset-2"
-        >
+        <Link href="/register" className="text-mango-600 font-semibold underline underline-offset-2">
           สมัครสมาชิก
         </Link>
       </p>
     </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
