@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { toAuthError } from '@/lib/errors';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(toAuthError(error.message));
       setLoading(false);
       return;
     }

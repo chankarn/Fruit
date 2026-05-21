@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { toAuthError } from '@/lib/errors';
 
 function LoginForm() {
   const router = useRouter();
@@ -27,11 +28,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
-          : error.message,
-      );
+      setError(toAuthError(error.message));
       setLoading(false);
       return;
     }

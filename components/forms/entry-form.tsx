@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ProductCombobox } from './product-combobox';
 import { createClient } from '@/lib/supabase/client';
 import { formatBaht, formatThaiDate, todayISO } from '@/lib/format';
+import { toSaveError } from '@/lib/errors';
 import { entryPayloadSchema, type EntryPayload } from '@/lib/schemas/entry';
 
 type Mode = 'sales' | 'expenses';
@@ -252,7 +253,7 @@ export function EntryForm({ mode }: { mode: Mode }) {
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err: Error) => {
-      setErrorToast(err.message ?? 'บันทึกไม่สำเร็จ');
+      setErrorToast(toSaveError(err.message ?? ''));
     },
   });
 

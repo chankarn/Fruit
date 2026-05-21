@@ -22,6 +22,7 @@ import {
 import { TopProductsList } from '@/components/dashboard/top-products-list';
 import { HistoryTable } from '@/components/dashboard/history-table';
 import { createClient } from '@/lib/supabase/client';
+import { AlertCircle } from 'lucide-react';
 
 function eachDate(from: string, to: string): string[] {
   const out: string[] = [];
@@ -37,7 +38,7 @@ function eachDate(from: string, to: string): string[] {
 export default function DashboardPage() {
   const [range, setRange] = useState<Range>(() => buildPreset('7d'));
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard', range.from, range.to],
     queryFn: async () => {
       const supabase = createClient();
@@ -143,6 +144,8 @@ export default function DashboardPage() {
 
         {isLoading ? (
           <LoadingSkeleton />
+        ) : isError ? (
+          <ErrorState onRetry={() => refetch()} />
         ) : hasNoData ? (
           <EmptyState />
         ) : data ? (
@@ -192,6 +195,27 @@ function LoadingSkeleton() {
       </div>
       <div className="h-60 rounded-3xl bg-cream-200" />
       <div className="h-48 rounded-3xl bg-cream-200" />
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="card p-10 text-center animate-fade-in-up">
+      <div className="flex justify-center mb-3">
+        <AlertCircle className="h-12 w-12 text-rose-400" />
+      </div>
+      <h3 className="text-base font-bold text-slate-800">โหลดข้อมูลไม่สำเร็จ</h3>
+      <p className="mt-1 text-sm text-slate-500">
+        กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="btn-primary mt-5 px-8"
+      >
+        ลองใหม่
+      </button>
     </div>
   );
 }
