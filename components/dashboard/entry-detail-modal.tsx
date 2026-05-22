@@ -110,11 +110,11 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center bg-slate-900/70 backdrop-blur-sm md:p-4"
+      className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-slate-900/70 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full h-full md:h-auto md:max-w-lg md:max-h-[92vh] overflow-hidden bg-white md:rounded-3xl shadow-2xl animate-fade-in-up flex flex-col"
+        className="w-full md:max-w-lg max-h-[88vh] md:max-h-[92vh] overflow-hidden bg-white rounded-t-3xl md:rounded-3xl shadow-2xl animate-fade-in-up flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
