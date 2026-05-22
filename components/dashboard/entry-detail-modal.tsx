@@ -3,7 +3,14 @@
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X, ShoppingBag, Receipt, Loader2 } from 'lucide-react';
+import {
+  X,
+  ShoppingBag,
+  ShoppingCart,
+  TrendingUp,
+  Receipt,
+  Loader2,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatBaht, formatKg, formatThaiDate } from '@/lib/format';
 
@@ -13,25 +20,25 @@ type Props = {
   onClose: () => void;
 };
 
-type SaleItem = {
+type Item = {
   id: string;
   product_name: string;
   quantity_kg: number;
   price_per_kg: number;
-  amount: number;
+  total: number;
 };
 
-type ExtraExpense = {
+type Extra = {
   id: string;
   description: string;
   amount: number;
 };
 
 type EntryDetail = {
-  mode: 'sales' | 'expense';
-  notes: string | null;
-  sale_items: SaleItem[];
-  extra_expenses: ExtraExpense[];
+  sale_items: Item[];
+  purchase_items: Item[];
+  extra_incomes: Extra[];
+  extra_expenses: Extra[];
 };
 
 export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
@@ -51,59 +58,69 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
     queryKey: ['entry-detail', entryId],
     queryFn: async () => {
       const supabase = createClient();
-      const [entryRes, itemsRes, extrasRes] = await Promise.all([
-        supabase
-          .from('daily_entries')
-          .select('mode,notes')
-          .eq('id', entryId)
-          .single(),
-        supabase
-          .from('sale_items')
-          .select('id,product_name,quantity_kg,price_per_kg,amount')
-          .eq('entry_id', entryId)
-          .order('created_at'),
-        supabase
-          .from('extra_expenses')
-          .select('id,description,amount')
-          .eq('entry_id', entryId)
-          .order('created_at'),
-      ]);
-      if (entryRes.error) throw entryRes.error;
-      if (itemsRes.error) throw itemsRes.error;
-      if (extrasRes.error) throw extrasRes.error;
+      const [salesRes, purchasesRes, incomesRes, expensesRes] =
+        await Promise.all([
+          supabase
+            .from('sale_items')
+            .select('id,product_name,quantity_kg,price_per_kg,total')
+            .eq('entry_id', entryId)
+            .order('sort_order'),
+          supabase
+            .from('purchase_items')
+            .select('id,product_name,quantity_kg,price_per_kg,total')
+            .eq('entry_id', entryId)
+            .order('sort_order'),
+          supabase
+            .from('extra_incomes')
+            .select('id,description,amount')
+            .eq('entry_id', entryId)
+            .order('sort_order'),
+          supabase
+            .from('extra_expenses')
+            .select('id,description,amount')
+            .eq('entry_id', entryId)
+            .order('sort_order'),
+        ]);
+      if (salesRes.error) throw salesRes.error;
+      if (purchasesRes.error) throw purchasesRes.error;
+      if (incomesRes.error) throw incomesRes.error;
+      if (expensesRes.error) throw expensesRes.error;
       return {
-        mode: entryRes.data.mode,
-        notes: entryRes.data.notes,
-        sale_items: (itemsRes.data ?? []) as SaleItem[],
-        extra_expenses: (extrasRes.data ?? []) as ExtraExpense[],
+        sale_items: (salesRes.data ?? []) as Item[],
+        purchase_items: (purchasesRes.data ?? []) as Item[],
+        extra_incomes: (incomesRes.data ?? []) as Extra[],
+        extra_expenses: (expensesRes.data ?? []) as Extra[],
       };
     },
   });
 
-  const itemsTotal =
-    data?.sale_items.reduce((s, i) => s + Number(i.amount), 0) ?? 0;
-  const extrasTotal =
+  const salesTotal =
+    data?.sale_items.reduce((s, i) => s + Number(i.total), 0) ?? 0;
+  const purchaseTotal =
+    data?.purchase_items.reduce((s, i) => s + Number(i.total), 0) ?? 0;
+  const incomeTotal =
+    data?.extra_incomes.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
+  const expenseTotal =
     data?.extra_expenses.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
-  const grandTotal =
-    data?.mode === 'sales' ? itemsTotal - extrasTotal : itemsTotal + extrasTotal;
 
-  const isSales = data?.mode === 'sales';
+  const totalIncome = salesTotal + incomeTotal;
+  const totalExpense = purchaseTotal + expenseTotal;
+  const profit = totalIncome - totalExpense;
+  const positive = profit >= 0;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="w-full md:max-w-lg max-h-[90vh] overflow-hidden bg-white rounded-t-3xl md:rounded-3xl shadow-2xl animate-fade-in-up flex flex-col"
+        className="w-full md:max-w-lg max-h-[92vh] overflow-hidden bg-white rounded-t-3xl md:rounded-3xl shadow-2xl animate-fade-in-up flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-cream-200 shrink-0">
+        <div className="flex items-center justify-between p-5 border-b border-cream-200 shrink-0 bg-gradient-to-br from-mango-50 to-cream-50">
           <div>
-            <div className="text-xs text-slate-500">
-              {isSales ? '📈 รายรับ' : '📉 รายจ่าย'}
-            </div>
+            <div className="text-xs text-slate-500">รายละเอียดประจำวัน</div>
             <h2 className="text-base font-bold text-slate-800 mt-0.5">
               {formatThaiDate(entryDate)}
             </h2>
@@ -111,7 +128,7 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="btn-icon text-slate-400 hover:bg-cream-100"
+            className="btn-icon text-slate-400 hover:bg-white"
             aria-label="ปิด"
           >
             <X className="h-5 w-5" />
@@ -130,111 +147,184 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
             </p>
           ) : data ? (
             <>
-              {/* Sale items / Purchase items */}
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingBag className="h-4 w-4 text-mango-500" />
-                  <h3 className="text-sm font-bold text-slate-700">
-                    {isSales ? 'รายการขาย' : 'รายการซื้อ'}
-                  </h3>
-                </div>
-                {data.sale_items.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">ไม่มีรายการ</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {data.sale_items.map((item) => (
-                      <li
-                        key={item.id}
-                        className="rounded-2xl bg-cream-50 p-3 border border-cream-200"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-800 truncate">
-                            {item.product_name}
-                          </span>
-                          <span className="text-sm font-bold tabular-nums text-slate-800 shrink-0">
-                            {formatBaht(item.amount)}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500 tabular-nums">
-                          {formatKg(item.quantity_kg)} ×{' '}
-                          {formatBaht(item.price_per_kg)}/กก.
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-2 flex justify-between text-xs text-slate-500">
-                  <span>รวมรายการ</span>
-                  <span className="font-semibold tabular-nums">
-                    {formatBaht(itemsTotal)}
-                  </span>
-                </div>
-              </section>
-
-              {/* Extras */}
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <Receipt className="h-4 w-4 text-rose-400" />
-                  <h3 className="text-sm font-bold text-slate-700">
-                    {isSales ? 'รายจ่ายเพิ่มเติม' : 'ค่าใช้จ่ายอื่น'}
-                  </h3>
-                </div>
-                {data.extra_expenses.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">ไม่มีรายการ</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {data.extra_expenses.map((ex) => (
-                      <li
-                        key={ex.id}
-                        className="rounded-2xl bg-rose-50/60 p-3 border border-rose-100 flex items-center justify-between gap-2"
-                      >
-                        <span className="text-sm text-slate-700 truncate">
-                          {ex.description}
-                        </span>
-                        <span className="text-sm font-bold tabular-nums text-rose-700 shrink-0">
-                          {formatBaht(ex.amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-2 flex justify-between text-xs text-slate-500">
-                  <span>รวมเพิ่มเติม</span>
-                  <span className="font-semibold tabular-nums">
-                    {formatBaht(extrasTotal)}
-                  </span>
-                </div>
-              </section>
-
-              {/* Notes */}
-              {data.notes && (
-                <section>
-                  <h3 className="text-sm font-bold text-slate-700 mb-2">
-                    บันทึก
-                  </h3>
-                  <p className="text-sm text-slate-600 whitespace-pre-wrap rounded-2xl bg-cream-50 p-3 border border-cream-200">
-                    {data.notes}
-                  </p>
-                </section>
+              {data.sale_items.length > 0 && (
+                <Section
+                  icon={<ShoppingBag className="h-4 w-4 text-emerald-500" />}
+                  title="รายการขาย"
+                  total={salesTotal}
+                  totalColor="text-emerald-600"
+                >
+                  <ItemList items={data.sale_items} />
+                </Section>
               )}
+
+              {data.extra_incomes.length > 0 && (
+                <Section
+                  icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
+                  title="รายรับเพิ่มเติม"
+                  total={incomeTotal}
+                  totalColor="text-emerald-600"
+                >
+                  <ExtraList items={data.extra_incomes} tone="income" />
+                </Section>
+              )}
+
+              {data.purchase_items.length > 0 && (
+                <Section
+                  icon={<ShoppingCart className="h-4 w-4 text-rose-400" />}
+                  title="รายการซื้อ"
+                  total={purchaseTotal}
+                  totalColor="text-rose-600"
+                >
+                  <ItemList items={data.purchase_items} />
+                </Section>
+              )}
+
+              {data.extra_expenses.length > 0 && (
+                <Section
+                  icon={<Receipt className="h-4 w-4 text-rose-400" />}
+                  title="รายจ่ายเพิ่มเติม"
+                  total={expenseTotal}
+                  totalColor="text-rose-600"
+                >
+                  <ExtraList items={data.extra_expenses} tone="expense" />
+                </Section>
+              )}
+
+              {data.sale_items.length === 0 &&
+                data.purchase_items.length === 0 &&
+                data.extra_incomes.length === 0 &&
+                data.extra_expenses.length === 0 && (
+                  <p className="text-center text-sm text-slate-400 py-10">
+                    ไม่มีรายการในวันนี้
+                  </p>
+                )}
             </>
           ) : null}
         </div>
 
         {/* Footer total */}
         {data && (
-          <div className="p-5 border-t border-cream-200 bg-gradient-to-br from-mango-50 to-cream-50 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-600">
-                {isSales ? 'รายได้สุทธิ' : 'รายจ่ายรวม'}
+          <div className="p-5 border-t border-cream-200 bg-cream-50 shrink-0 space-y-1.5">
+            <Row label="รวมรายรับ" value={totalIncome} color="text-emerald-600" />
+            <Row label="รวมรายจ่าย" value={totalExpense} color="text-rose-600" />
+            <div className="pt-2 mt-2 border-t border-cream-200 flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700">
+                {positive ? 'กำไรสุทธิ' : 'ขาดทุน'}
               </span>
-              <span className="text-2xl font-extrabold tabular-nums text-mango-600">
-                {formatBaht(grandTotal)}
+              <span
+                className={
+                  'text-2xl font-extrabold tabular-nums ' +
+                  (positive ? 'text-sky-600' : 'text-orange-600')
+                }
+              >
+                {formatBaht(profit)}
               </span>
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  total,
+  totalColor,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  total: number;
+  totalColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+        </div>
+        <span className={'text-sm font-bold tabular-nums ' + totalColor}>
+          {formatBaht(total)}
+        </span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ItemList({ items }: { items: Item[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li
+          key={item.id}
+          className="rounded-2xl bg-cream-50 p-3 border border-cream-200"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-slate-800 truncate">
+              {item.product_name}
+            </span>
+            <span className="text-sm font-bold tabular-nums text-slate-800 shrink-0">
+              {formatBaht(item.total)}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-slate-500 tabular-nums">
+            {formatKg(item.quantity_kg)} × {formatBaht(item.price_per_kg)}/กก.
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ExtraList({
+  items,
+  tone,
+}: {
+  items: Extra[];
+  tone: 'income' | 'expense';
+}) {
+  const bg = tone === 'income' ? 'bg-emerald-50/60 border-emerald-100' : 'bg-rose-50/60 border-rose-100';
+  const text = tone === 'income' ? 'text-emerald-700' : 'text-rose-700';
+  return (
+    <ul className="space-y-2">
+      {items.map((ex) => (
+        <li
+          key={ex.id}
+          className={`rounded-2xl p-3 border flex items-center justify-between gap-2 ${bg}`}
+        >
+          <span className="text-sm text-slate-700 truncate">
+            {ex.description}
+          </span>
+          <span className={`text-sm font-bold tabular-nums shrink-0 ${text}`}>
+            {formatBaht(ex.amount)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Row({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-600">{label}</span>
+      <span className={`font-semibold tabular-nums ${color}`}>
+        {formatBaht(value)}
+      </span>
     </div>
   );
 }
