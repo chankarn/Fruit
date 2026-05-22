@@ -1,7 +1,8 @@
 // File: components/dashboard/entry-detail-modal.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   X,
@@ -42,6 +43,9 @@ type EntryDetail = {
 };
 
 export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -108,7 +112,9 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
   const profit = totalIncome - totalExpense;
   const positive = profit >= 0;
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-slate-900/70 backdrop-blur-sm"
       onClick={onClose}
@@ -224,7 +230,8 @@ export function EntryDetailModal({ entryId, entryDate, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
